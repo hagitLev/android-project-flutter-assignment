@@ -116,22 +116,44 @@ class _RandomWordsState extends State<RandomWords> {
                   ]),
                 ),
                 key: ValueKey<WordPair>(pair),
-                confirmDismiss: (DismissDirection dismissDirection) async {
-                  final snackBar = SnackBar(
-                    content: const Text('Deletion is not implemented yet'),
-                    action: SnackBarAction(
-                      label: '',
-                      onPressed: () {
-                        // Some code to undo the change.
-                      },
-                    ),
+                // confirmDismiss: (DismissDirection dismissDirection) async {
+                // final snackBar = SnackBar(
+                //   content: const Text('Deletion is not implemented yet'),
+                //   action: SnackBarAction(
+                //     label: '',
+                //     onPressed: () {
+                //       // Some code to undo the change.
+                //     },
+                //   ),
+                // );
+                //
+                // // Find the ScaffoldMessenger in the widget tree
+                // // and use it to show a SnackBar.
+                // ScaffoldMessenger.of(context).showSnackBar(snackBar);
+                //
+                //   return false;
+                // },
+                confirmDismiss: (DismissDirection direction) async {
+                  return await showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text("Delete Suggestion"),
+                        content: const Text(
+                            "Are you sure you want to delete this item from your saved suggestions?"),
+                        actions: <Widget>[
+                          FlatButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text("Yes",style: TextStyle(color: Colors.white)),
+                              color: Theme.of(context).primaryColor),
+                          FlatButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text("No", style: TextStyle(color: Colors.white)),
+                              color: Theme.of(context).primaryColor),
+                        ],
+                      );
+                    },
                   );
-
-                  // Find the ScaffoldMessenger in the widget tree
-                  // and use it to show a SnackBar.
-                  ScaffoldMessenger.of(context).showSnackBar(snackBar);
-
-                  return false;
                 },
                 onDismissed: (DismissDirection direction) {
                   // add here code to handle deletion
