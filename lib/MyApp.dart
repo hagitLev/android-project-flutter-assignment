@@ -1,28 +1,60 @@
 import 'package:english_words/english_words.dart'; // Add this line.
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:hello_me2/authentication.dart';
 import 'package:hello_me2/login.dart';
+import 'package:hello_me2/userFavorites.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Startup Name Generator',
-      theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        // old colors were here:
-        // appBarTheme: const AppBarTheme(
-        //   backgroundColor: Colors.white,
-        //   foregroundColor: Colors.black,
-        // ),
-      ),
-      home: const RandomWords(),
-    );
+    return Consumer<UserFavorites>(
+        builder: (context, userFavorites, child)
+    {
+      return MaterialApp(
+        title: 'Startup Name Generator',
+        theme: ThemeData(
+          primarySwatch: Colors.deepPurple,
+          // old colors were here:
+          // appBarTheme: const AppBarTheme(
+          //   backgroundColor: Colors.white,
+          //   foregroundColor: Colors.black,
+          // ),
+        ),
+        home: const RandomWords(),
+      );
+    });
   }
 }
+
+// class SavedSuggestion {
+//   SavedSuggestion({required this.pair, required this.user, required this.created});
+//
+//   SavedSuggestion.fromJson(Map<String, Object?> json)
+//       : this(
+//     pair: json['pair']! as String,
+//     user: json['user']! as String,
+//     created: json['created']! as Timestamp,
+//   );
+//
+//   final String pair;
+//   final String user;
+//   final Timestamp created;
+//
+//   Map<String, Object?> toJson() {
+//     return {
+//       'pair': pair,
+//       'user': user,
+//       'created': created
+//     };
+//   }
+// }
 
 class RandomWords extends StatefulWidget {
   const RandomWords({Key? key}) : super(key: key);
@@ -33,55 +65,146 @@ class RandomWords extends StatefulWidget {
 
 class _RandomWordsState extends State<RandomWords> {
   final _suggestions = <WordPair>[]; // NEW
-  final _saved = <WordPair>{};
+  // var _saved = <WordPair>{};
   final _biggerFont = const TextStyle(fontSize: 18);
+  // var _isAuth = AuthRepository.instance().isAuthenticated;
+  final _fireStore = FirebaseFirestore.instance;
+  var favorites = UserFavorites().favorites;
+
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      // Add from here...
-      appBar: AppBar(
-        title: const Text('Startup Name Generator'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.star),
-            onPressed: _pushSaved,
-            tooltip: 'Saved Suggestions',
-          ),
-          IconButton(
-              icon: AuthRepository.instance().isAuthenticated
-                  ? const Icon(Icons.exit_to_app)
-                  : const Icon(Icons.login),
-              tooltip: 'Login',
-              onPressed: AuthRepository.instance().isAuthenticated
-                  ? () {
-                AuthRepository.instance().signOut();
-                      ScaffoldMessenger.of(context).showSnackBar( const SnackBar(
-                        content: Text(
-                          'Successfully logged out',
-                          style: TextStyle(fontSize: 16),
-                        ),
-                      ));
-                    }
-                  : () {
-                      Navigator.push(context,
-                          MaterialPageRoute(builder: (context) => Login()));
-                    }
-              // _pushLogin,
-              ),
-        ],
-      ),
-      body: _buildSuggestions(),
+    // Future<void> getData() async {
+    //   var collection = _fireStore.collection('users').doc(AuthRepository.instance().user?.email).collection('saved');
+    //   var querySnapshot = await collection.get();
+    //   for (var doc in querySnapshot.docs) {
+    //     Map<String, dynamic> data = doc.data();
+    //     // if (data['user'] == AuthRepository
+    //     //     .instance()
+    //     //     .user
+    //     //     ?.email) {
+    //     final first = data['first'];
+    //     final second = data['second'];
+    //     final pair = WordPair(first, second);
+    //     _saved.add(pair);
+    //     // }
+    //
+    //   }
+    // }
+
+
+    // if (_isAuth) {
+    //   // getData();
+    // print('this is saved before: $_saved');
+    // UserFavorites().getData();
+    // // _saved = UserFavorites().favorites;
+    // print('this is saved after: $favorites');
+    //
+    // }
+    // print('This is local save: $_localSave');
+
+    return Consumer<UserFavorites>(
+        builder: (context, userFavorites, child) {
+          return Scaffold(
+            // Add from here...
+            appBar: AppBar(
+              title: const Text('Startup Name Generator'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.star),
+                  onPressed: () => _pushSaved(userFavorites),
+                  tooltip: 'Saved Suggestions',
+                ),
+                Consumer<AuthRepository>(
+                    builder: (context, authRepository, child) {
+                      if (authRepository.isAuthenticated) {
+                        userFavorites.getData(authRepository);
+                      }
+                      return
+                        IconButton(
+                            icon: authRepository.isAuthenticated
+                                ? const Icon(Icons.exit_to_app)
+                                : const Icon(Icons.login),
+                            tooltip: 'Login',
+                            onPressed: authRepository.isAuthenticated ? () {
+                              // _isAuth
+                              //     ? () {
+                              //   setState(() {
+                              //     _isAuth = !_isAuth;
+                              //   });
+                              authRepository.signOut();
+                              userFavorites.resetFavorites();
+                              // UserFavorites().resetFavorites();
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Successfully logged out',
+                                      style: TextStyle(fontSize: 16),
+                                    ),
+                                  ));
+                            }
+                                : () {
+                              // AuthRepository.instance().updateLocalSave(_saved);
+                              // print(_localSave);
+                              Navigator.push(context,
+                                  MaterialPageRoute(builder: (
+                                      context) => const Login()));
+                            }
+                          // _pushLogin,
+                        );
+                    })
+              ],
+            ),
+            body: _buildSuggestions(),
+          );
+        }
     );
   }
 
-  void _pushSaved() {
+  // // Create a CollectionReference called users that references the firestore collection
+  // CollectionReference users = FirebaseFirestore.instance.collection('users');
+  // CollectionReference saved = FirebaseFirestore.instance.collection('users').doc(AuthRepository.instance().user?.email).collection('saved');
+  // Future<void> addSuggestion(splitPair) {
+  //   // Call the user's CollectionReference to add a new pair
+  //   return saved.doc(splitPair[0]+splitPair[1])
+  //       .set({
+  //     'first': splitPair[0],
+  //     'second': splitPair[1],
+  //     'user': AuthRepository
+  //         .instance()
+  //         .user
+  //         ?.email
+  //         .toString(),
+  //     'created': Timestamp.now(),
+  //   })
+  //       .then((value) => print("User suggestion was Added"))
+  //   // .then((value) => print('_currentData is : $_currentData'))
+  //       .catchError(
+  //           (error) => print("Failed to add user's suggestion: $error"));
+  // }
+  //
+  //
+  // Future<void> removeSuggestion(pair) {
+  //   setState(() {_saved.remove(pair);});
+  //   // Call the user's CollectionReference to remove pair
+  //   return saved.doc(pair)
+  //       .delete()
+  //       .then((value) => print("User suggestion was removed"))
+  //   // .then((value) => print('_currentData is : $_currentData'))
+  //       .catchError(
+  //           (error) => print("Failed to remove user's suggestion: $error"));
+  // }
+
+
+  void _pushSaved(UserFavorites userFavorites) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) {
           final ConfirmDismissCallback? confirmDismiss;
-          final tiles = _saved.map(
-            (pair) {
+          // final tiles = _saved.map(
+            final tiles =userFavorites.favorites.map(
+                (pair) {
               return Dismissible(
                 child: Padding(
                   padding: const EdgeInsets.all(10.0),
@@ -93,7 +216,9 @@ class _RandomWordsState extends State<RandomWords> {
                   ),
                 ),
                 background: Container(
-                  color: Theme.of(context).primaryColor,
+                  color: Theme
+                      .of(context)
+                      .primaryColor,
                   child: Row(children: const [
                     SizedBox(width: 10),
                     Icon(
@@ -106,23 +231,6 @@ class _RandomWordsState extends State<RandomWords> {
                   ]),
                 ),
                 key: ValueKey<WordPair>(pair),
-                // confirmDismiss: (DismissDirection dismissDirection) async {
-                // final snackBar = SnackBar(
-                //   content: const Text('Deletion is not implemented yet'),
-                //   action: SnackBarAction(
-                //     label: '',
-                //     onPressed: () {
-                //       // Some code to undo the change.
-                //     },
-                //   ),
-                // );
-                //
-                // // Find the ScaffoldMessenger in the widget tree
-                // // and use it to show a SnackBar.
-                // ScaffoldMessenger.of(context).showSnackBar(snackBar);
-                //
-                //   return false;
-                // },
                 confirmDismiss: (DismissDirection direction) async {
                   var currPair = pair.asPascalCase;
                   return await showDialog(
@@ -133,17 +241,32 @@ class _RandomWordsState extends State<RandomWords> {
                         content: Text(
                             'Are you sure you want to delete $currPair from your saved suggestions?'),
                         actions: <Widget>[
-                          FlatButton(
-                              onPressed: () => Navigator.of(context).pop(true),
-                              child: const Text("Yes",
-                                  style: TextStyle(color: Colors.white)),
-                              color: Theme.of(context).primaryColor),
+                          Consumer<AuthRepository>(
+                              builder: (context, authRepository, child) {
+                                return FlatButton(
+                                    onPressed: () =>
+                                    {
+                                      Navigator.of(context).pop(true),
+                                      // removeSuggestion(pair.toLowerCase().toString()),
+                                      userFavorites.removeFromFavorites(
+                                          pair, authRepository)
+                                    },
+                                    child: const Text("Yes",
+                                        style: TextStyle(color: Colors.white)),
+                                    color: Theme
+                                        .of(context)
+                                        .primaryColor);
+                              }),
                           FlatButton(
                               onPressed: () => Navigator.of(context).pop(false),
                               child: const Text("No",
                                   style: TextStyle(color: Colors.white)),
-                              color: Theme.of(context).primaryColor),
+                              color: Theme
+                                  .of(context)
+                                  .primaryColor),
+
                         ],
+
                       );
                     },
                   );
@@ -156,9 +279,9 @@ class _RandomWordsState extends State<RandomWords> {
           );
           final divided = tiles.isNotEmpty
               ? ListTile.divideTiles(
-                  context: context,
-                  tiles: tiles,
-                ).toList()
+            context: context,
+            tiles: tiles,
+          ).toList()
               : <Widget>[];
 
           return Scaffold(
@@ -172,86 +295,86 @@ class _RandomWordsState extends State<RandomWords> {
     );
   }
 
-  void _pushLogin() {
-    String? email;
-    String? password;
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (context) {
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('Login'),
-          ),
-          body: Center(
-              child: Column(
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(top: 20.0, right: 20.0, left: 20.0),
-                child: Text(
-                    'Welcome to Startup NamesGenerator, please log in below'),
-              ),
-              Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: TextFormField(
-                    decoration: const InputDecoration(
-                      border: UnderlineInputBorder(),
-                      labelText: 'Email',
-                    ),
-                  )),
-              Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: TextFormField(
-                    decoration: const InputDecoration(
-                      border: UnderlineInputBorder(),
-                      labelText: 'Password',
-                    ),
-                  )),
-              ElevatedButton(
-                onPressed: () {
-                  // final snackBar = SnackBar(
-                  //   content: const Text('Login is not implemented yet'),
-                  //   action: SnackBarAction(
-                  //     label: 'Undo',
-                  //     onPressed: () {
-                  //       // Some code to undo the change.
-                  //     },
-                  //   ),
-                  // );
-                  //
-                  // // Find the ScaffoldMessenger in the widget tree
-                  // // and use it to show a SnackBar.
-                  // ScaffoldMessenger.of(context).showSnackBar(snackBar);
-
-                  // AuthRepository.instance()
-                  //     .signIn(email: email, password: password)
-                  //     .then((result) {
-                  //   print('****** This is the result:  $result');
-                  //   if (result == null) {
-                  //     Navigator.pushReplacement(context,
-                  //         MaterialPageRoute(builder: (context) => MyApp()));
-                  //   } else {
-                  //     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  //       content: Text(
-                  //         // result,
-                  //         'here',
-                  //         style: TextStyle(fontSize: 16),
-                  //       ),
-                  //     ));
-                  //   }
-                  // });
-                },
-                child: const Text("Log in"),
-                style: ElevatedButton.styleFrom(
-                    fixedSize: const Size(320, 30),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(40.0),
-                    )),
-              )
-            ],
-          )),
-        );
-      },
-    ));
-  }
+  // void _pushLogin() {
+  //   String? email;
+  //   String? password;
+  //   Navigator.of(context).push(MaterialPageRoute<void>(
+  //     builder: (context) {
+  //       return Scaffold(
+  //         appBar: AppBar(
+  //           title: const Text('Login'),
+  //         ),
+  //         body: Center(
+  //             child: Column(
+  //           children: [
+  //             const Padding(
+  //               padding: EdgeInsets.only(top: 20.0, right: 20.0, left: 20.0),
+  //               child: Text(
+  //                   'Welcome to Startup NamesGenerator, please log in below'),
+  //             ),
+  //             Padding(
+  //                 padding: const EdgeInsets.all(20.0),
+  //                 child: TextFormField(
+  //                   decoration: const InputDecoration(
+  //                     border: UnderlineInputBorder(),
+  //                     labelText: 'Email',
+  //                   ),
+  //                 )),
+  //             Padding(
+  //                 padding: const EdgeInsets.all(20.0),
+  //                 child: TextFormField(
+  //                   decoration: const InputDecoration(
+  //                     border: UnderlineInputBorder(),
+  //                     labelText: 'Password',
+  //                   ),
+  //                 )),
+  //             ElevatedButton(
+  //               onPressed: () {
+  //                 // final snackBar = SnackBar(
+  //                 //   content: const Text('Login is not implemented yet'),
+  //                 //   action: SnackBarAction(
+  //                 //     label: 'Undo',
+  //                 //     onPressed: () {
+  //                 //       // Some code to undo the change.
+  //                 //     },
+  //                 //   ),
+  //                 // );
+  //                 //
+  //                 // // Find the ScaffoldMessenger in the widget tree
+  //                 // // and use it to show a SnackBar.
+  //                 // ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  //
+  //                 // AuthRepository.instance()
+  //                 //     .signIn(email: email, password: password)
+  //                 //     .then((result) {
+  //                 //   print('****** This is the result:  $result');
+  //                 //   if (result == null) {
+  //                 //     Navigator.pushReplacement(context,
+  //                 //         MaterialPageRoute(builder: (context) => MyApp()));
+  //                 //   } else {
+  //                 //     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+  //                 //       content: Text(
+  //                 //         // result,
+  //                 //         'here',
+  //                 //         style: TextStyle(fontSize: 16),
+  //                 //       ),
+  //                 //     ));
+  //                 //   }
+  //                 // });
+  //               },
+  //               child: const Text("Log in"),
+  //               style: ElevatedButton.styleFrom(
+  //                   fixedSize: const Size(320, 30),
+  //                   shape: RoundedRectangleBorder(
+  //                     borderRadius: BorderRadius.circular(40.0),
+  //                   )),
+  //             )
+  //           ],
+  //         )),
+  //       );
+  //     },
+  //   ));
+  // }
 
   Widget _buildSuggestions() {
     return ListView.builder(
@@ -290,65 +413,90 @@ class _RandomWordsState extends State<RandomWords> {
   }
 
   Widget _buildRow(WordPair pair) {
-    final alreadySaved = _saved.contains(pair);
-    return ListTile(
-      title: Text(
-        pair.asPascalCase,
-        style: _biggerFont,
-      ),
-      trailing: Icon(
-        // NEW from here...
-        alreadySaved ? Icons.star : Icons.star_border,
-        color: alreadySaved ? Theme.of(context).primaryColor : null,
-        semanticLabel: alreadySaved ? 'Remove from saved' : 'Save',
-      ),
-      onTap: () {
-        // NEW lines from here...
-        setState(() {
-          if (alreadySaved) {
-            _saved.remove(pair);
-          } else {
-            _saved.add(pair);
-          }
-        });
-      },
-    );
-  }
+    // final alreadySaved = _saved.contains(pair);
+    return Consumer<UserFavorites>(
+        builder: (context, userFavorites, child) {
+          // final alreadySaved = UserFavorites().favorites.contains(pair);
+          final alreadySaved = userFavorites.favorites.contains(pair);
+          var splitPair = pair.join(' ').split(' ');
+          return Consumer<AuthRepository>(
+              builder: (context, authRepository, child)
+          {
+            return ListTile(
+              title: Text(
+                pair.asPascalCase,
+                style: _biggerFont,
+              ),
+              trailing: Icon(
+                // NEW from here...
+                alreadySaved ? Icons.star : Icons.star_border,
+                color: alreadySaved ? Theme
+                    .of(context)
+                    .primaryColor : null,
+                semanticLabel: alreadySaved ? 'Remove from saved' : 'Save',
+              ),
+              onTap: () {
+                setState(() {
+                  if (alreadySaved) {
+                    userFavorites.removeFromFavorites(pair, authRepository);
+                    // _saved.remove(pair);
+                    // _isAuth ? userFavorites.removeFromFavorites(pair, authRepository) : null;
+                    // // UserFavorites().getData();
+                  } else {
+                    // _saved.add(pair);
+                    userFavorites.addToFavorites(pair, authRepository);
+                    // if (_isAuth) {
+                    //   userFavorites.addToFavorites(pair, authRepository);
+                    //   print('this is current favorites: ${userFavorites.favorites}');
+                    //   // UserFavorites().getData();
+                    //   // _saved = UserFavorites().favorites;
+                    //   // addSuggestion(splitPair);
+                    // }
+                  }
 
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-  Widget _buildForm(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          TextFormField(
-            decoration: const InputDecoration(
-              hintText: 'Enter your email',
-            ),
-            validator: (String? value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter some text';
-              }
-              return null;
-            },
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16.0),
-            child: ElevatedButton(
-              onPressed: () {
-                // Validate will return true if the form is valid, or false if
-                // the form is invalid.
-                if (_formKey.currentState!.validate()) {
-                  // Process data.
-                }
+                  // _saved = _isAuth? UserFavorites().favorites: _saved;
+                });
               },
-              child: const Text('Submit'),
-            ),
-          ),
-        ],
-      ),
-    );
+            );
+          });
+        });
+
+    // final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+    // Widget _buildForm(BuildContext context) {
+    //   return Form(
+    //     key: _formKey,
+    //     child: Column(
+    //       crossAxisAlignment: CrossAxisAlignment.start,
+    //       children: <Widget>[
+    //         TextFormField(
+    //           decoration: const InputDecoration(
+    //             hintText: 'Enter your email',
+    //           ),
+    //           validator: (String? value) {
+    //             if (value == null || value.isEmpty) {
+    //               return 'Please enter some text';
+    //             }
+    //             return null;
+    //           },
+    //         ),
+    //         Padding(
+    //           padding: const EdgeInsets.symmetric(vertical: 16.0),
+    //           child: ElevatedButton(
+    //             onPressed: () {
+    //               // Validate will return true if the form is valid, or false if
+    //               // the form is invalid.
+    //               if (_formKey.currentState!.validate()) {
+    //                 // Process data.
+    //               }
+    //             },
+    //             child: const Text('Submit'),
+    //           ),
+    //         ),
+    //       ],
+    //     ),
+    //   );
+    // }
+
   }
 }

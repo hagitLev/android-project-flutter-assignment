@@ -3,17 +3,20 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:hello_me2/authentication.dart';
 import 'package:hello_me2/MyApp.dart';
+import 'package:hello_me2/userFavorites.dart';
 import 'package:provider/provider.dart';
 
 void main() {
-
   WidgetsFlutterBinding.ensureInitialized();
   //
   runApp(
-    ChangeNotifierProvider<AuthRepository>(
-      create: (_) => AuthRepository.instance() ,
+    MultiProvider(providers: [
+      ChangeNotifierProvider(create: (context) => AuthRepository.instance()),
+      ChangeNotifierProvider(create: (context) => UserFavorites())
+    ],
       child: App(),
-    ),
+    )
+    ,
   );
 }
 
@@ -37,7 +40,10 @@ class App extends StatelessWidget {
             home: MyApp(),
           );
         }
-        return const Center(child: CircularProgressIndicator(color: Colors.purple,));
+        return const Center(child:CircularProgressIndicator(
+          value: 0.8,
+        ),
+        );
       },
     );
   }
