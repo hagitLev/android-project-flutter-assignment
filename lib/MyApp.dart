@@ -7,54 +7,30 @@ import 'package:hello_me2/login.dart';
 import 'package:hello_me2/userFavorites.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-
+import 'package:snapping_sheet/snapping_sheet.dart';
+import 'package:hello_me2/defaultGrabbing.dart';
+import 'package:hello_me2/profilePicture.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io' as io;
+import 'dart:ui' as ui;
 
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<UserFavorites>(
-        builder: (context, userFavorites, child)
-    {
+    return Consumer<UserFavorites>(builder: (context, userFavorites, child) {
       return MaterialApp(
         title: 'Startup Name Generator',
         theme: ThemeData(
           primarySwatch: Colors.deepPurple,
-          // old colors were here:
-          // appBarTheme: const AppBarTheme(
-          //   backgroundColor: Colors.white,
-          //   foregroundColor: Colors.black,
-          // ),
         ),
         home: const RandomWords(),
       );
     });
   }
 }
-
-// class SavedSuggestion {
-//   SavedSuggestion({required this.pair, required this.user, required this.created});
-//
-//   SavedSuggestion.fromJson(Map<String, Object?> json)
-//       : this(
-//     pair: json['pair']! as String,
-//     user: json['user']! as String,
-//     created: json['created']! as Timestamp,
-//   );
-//
-//   final String pair;
-//   final String user;
-//   final Timestamp created;
-//
-//   Map<String, Object?> toJson() {
-//     return {
-//       'pair': pair,
-//       'user': user,
-//       'created': created
-//     };
-//   }
-// }
 
 class RandomWords extends StatefulWidget {
   const RandomWords({Key? key}) : super(key: key);
@@ -67,44 +43,17 @@ class _RandomWordsState extends State<RandomWords> {
   final _suggestions = <WordPair>[]; // NEW
   // var _saved = <WordPair>{};
   final _biggerFont = const TextStyle(fontSize: 18);
-  // var _isAuth = AuthRepository.instance().isAuthenticated;
-  final _fireStore = FirebaseFirestore.instance;
   var favorites = UserFavorites().favorites;
-
 
   @override
   Widget build(BuildContext context) {
-    // Future<void> getData() async {
-    //   var collection = _fireStore.collection('users').doc(AuthRepository.instance().user?.email).collection('saved');
-    //   var querySnapshot = await collection.get();
-    //   for (var doc in querySnapshot.docs) {
-    //     Map<String, dynamic> data = doc.data();
-    //     // if (data['user'] == AuthRepository
-    //     //     .instance()
-    //     //     .user
-    //     //     ?.email) {
-    //     final first = data['first'];
-    //     final second = data['second'];
-    //     final pair = WordPair(first, second);
-    //     _saved.add(pair);
-    //     // }
-    //
-    //   }
-    // }
+    final snappingSheetController = SnappingSheetController();
 
-
-    // if (_isAuth) {
-    //   // getData();
-    // print('this is saved before: $_saved');
-    // UserFavorites().getData();
-    // // _saved = UserFavorites().favorites;
-    // print('this is saved after: $favorites');
-    //
-    // }
-    // print('This is local save: $_localSave');
-
-    return Consumer<UserFavorites>(
-        builder: (context, userFavorites, child) {
+    return ChangeNotifierProvider(
+      create: (context) => ProfileSheet(),
+      child: Consumer<UserFavorites>(builder: (context, userFavorites, child) {
+        return Consumer<AuthRepository>(
+            builder: (context, authRepository, child) {
           return Scaffold(
             // Add from here...
             appBar: AppBar(
@@ -117,85 +66,201 @@ class _RandomWordsState extends State<RandomWords> {
                 ),
                 Consumer<AuthRepository>(
                     builder: (context, authRepository, child) {
-                      if (authRepository.isAuthenticated) {
-                        userFavorites.getData(authRepository);
-                      }
-                      return
-                        IconButton(
-                            icon: authRepository.isAuthenticated
-                                ? const Icon(Icons.exit_to_app)
-                                : const Icon(Icons.login),
-                            tooltip: 'Login',
-                            onPressed: authRepository.isAuthenticated ? () {
-                              // _isAuth
-                              //     ? () {
-                              //   setState(() {
-                              //     _isAuth = !_isAuth;
-                              //   });
+                  if (authRepository.isAuthenticated) {
+                    userFavorites.getData(authRepository);
+                  }
+                  return IconButton(
+                      icon: authRepository.isAuthenticated
+                          ? const Icon(Icons.exit_to_app)
+                          : const Icon(Icons.login),
+                      tooltip: 'Login',
+                      onPressed: authRepository.isAuthenticated
+                          ? () {
                               authRepository.signOut();
                               userFavorites.resetFavorites();
-                              // UserFavorites().resetFavorites();
-
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Successfully logged out',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                  ));
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(const SnackBar(
+                                content: Text(
+                                  'Successfully logged out',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ));
                             }
-                                : () {
-                              // AuthRepository.instance().updateLocalSave(_saved);
-                              // print(_localSave);
-                              Navigator.push(context,
-                                  MaterialPageRoute(builder: (
-                                      context) => const Login()));
+                          : () {
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) => const Login()));
                             }
-                          // _pushLogin,
-                        );
-                    })
+                      // _pushLogin,
+                      );
+                })
               ],
             ),
-            body: _buildSuggestions(),
+            body: !authRepository.isAuthenticated
+                ? _buildSuggestions()
+                : SnappingSheet(
+                    controller: snappingSheetController,
+                    lockOverflowDrag: true,
+                    grabbingHeight: 50,
+                    grabbing: DefaultGrabbing(
+                        snappingSheetController: snappingSheetController),
+                    child: Consumer<ProfileSheet>(
+                        builder: (context, profileSheet, child) {
+                      return !profileSheet.snappingSheetOpen
+                          ? _buildSuggestions()
+                          : Stack(
+                              fit: StackFit.expand,
+                              children: <Widget>[
+                                _buildSuggestions(),
+                                BackdropFilter(
+                                  filter: ui.ImageFilter.blur(
+                                    sigmaX: profileSheet.snappingSheetOpen
+                                        ? 3.0
+                                        : 0.0,
+                                    sigmaY: profileSheet.snappingSheetOpen
+                                        ? 3.0
+                                        : 0.0,
+                                  ),
+                                  child: Container(
+                                    color: Colors.transparent,
+                                  ),
+                                )
+                              ],
+                            );
+                    }),
+                    sheetBelow: SnappingSheetContent(
+                        draggable: false,
+                        child: Container(
+                            color: Colors.white,
+                            child: Row(
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Consumer<ProfilePicture>(builder:
+                                      (context, userProfilePic, child) {
+                                    return Container(
+                                      margin: EdgeInsets.all(20),
+                                      width: 100,
+                                      height: 100,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        image: DecorationImage(
+                                            image: NetworkImage(userProfilePic
+                                                    .linkToProfilePic ??
+                                                'https://cdn-icons-png.flaticon.com/512/149/149071.png'),
+                                            fit: BoxFit.cover),
+                                      ),
+                                    )
+                                        // ,
+                                        ;
+                                  }),
+                                  Consumer<ProfilePicture>(builder:
+                                      (context, userProfilePic, child) {
+                                    return Expanded(
+                                      child: Container(
+                                        margin: const EdgeInsets.only(top: 20),
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Flexible(
+                                                child: Text(
+                                              '${authRepository.user?.email}',
+                                              // softWrap: true,
+                                              style:
+                                                  const TextStyle(fontSize: 20),
+                                            )),
+                                            Flexible(
+                                                child: SizedBox(
+                                                    width: 150.0,
+                                                    child: TextButton(
+                                                      onPressed: () async {
+                                                        FilePickerResult? res =
+                                                            await FilePicker
+                                                                .platform
+                                                                .pickFiles(
+                                                          type: FileType.custom,
+                                                          allowedExtensions: [
+                                                            'jpg',
+                                                            'png',
+                                                            'jpeg',
+                                                            'svg',
+                                                            'webp',
+                                                            'apng',
+                                                            'avif',
+                                                          ],
+                                                        );
+                                                        if (res != null) {
+                                                          String fileName = res
+                                                              .files.first.name;
+                                                          io.File file =
+                                                              io.File(res
+                                                                  .files
+                                                                  .single
+                                                                  .path!);
+                                                          try {
+                                                            await FirebaseStorage
+                                                                .instance
+                                                                .ref(
+                                                                    'users_profile_pictures/$fileName')
+                                                                .putFile(file);
+                                                            await FirebaseStorage
+                                                                .instance
+                                                                .ref(
+                                                                    'users_profile_pictures/$fileName')
+                                                                .getDownloadURL()
+                                                                .then((value) =>
+                                                                    userProfilePic
+                                                                        .addProfilePicture(
+                                                                            authRepository,
+                                                                            value))
+                                                                .then((value) =>
+                                                                    userProfilePic
+                                                                        .getProfilePicture(
+                                                                            authRepository));
+                                                          } catch (e) {
+                                                            print(
+                                                                "There was a problem with getting the picture");
+                                                          }
+                                                        } else {
+                                                          ScaffoldMessenger.of(
+                                                                  context)
+                                                              .showSnackBar(
+                                                                  const SnackBar(
+                                                            content: Text(
+                                                              'No image selected',
+                                                              style: TextStyle(
+                                                                  fontSize: 16),
+                                                            ),
+                                                          ));
+                                                        }
+                                                      },
+                                                      style:
+                                                          TextButton.styleFrom(
+                                                        primary: Colors.white,
+                                                        backgroundColor:
+                                                            Colors.blue,
+                                                      ),
+                                                      child: const Text(
+                                                          'Change avatar'),
+                                                    ))),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                        // ,
+                                        ;
+                                  }),
+                                ]))),
+                  ),
           );
-        }
+        });
+      }),
     );
   }
-
-  // // Create a CollectionReference called users that references the firestore collection
-  // CollectionReference users = FirebaseFirestore.instance.collection('users');
-  // CollectionReference saved = FirebaseFirestore.instance.collection('users').doc(AuthRepository.instance().user?.email).collection('saved');
-  // Future<void> addSuggestion(splitPair) {
-  //   // Call the user's CollectionReference to add a new pair
-  //   return saved.doc(splitPair[0]+splitPair[1])
-  //       .set({
-  //     'first': splitPair[0],
-  //     'second': splitPair[1],
-  //     'user': AuthRepository
-  //         .instance()
-  //         .user
-  //         ?.email
-  //         .toString(),
-  //     'created': Timestamp.now(),
-  //   })
-  //       .then((value) => print("User suggestion was Added"))
-  //   // .then((value) => print('_currentData is : $_currentData'))
-  //       .catchError(
-  //           (error) => print("Failed to add user's suggestion: $error"));
-  // }
-  //
-  //
-  // Future<void> removeSuggestion(pair) {
-  //   setState(() {_saved.remove(pair);});
-  //   // Call the user's CollectionReference to remove pair
-  //   return saved.doc(pair)
-  //       .delete()
-  //       .then((value) => print("User suggestion was removed"))
-  //   // .then((value) => print('_currentData is : $_currentData'))
-  //       .catchError(
-  //           (error) => print("Failed to remove user's suggestion: $error"));
-  // }
-
 
   void _pushSaved(UserFavorites userFavorites) {
     Navigator.of(context).push(
@@ -203,8 +268,8 @@ class _RandomWordsState extends State<RandomWords> {
         builder: (context) {
           final ConfirmDismissCallback? confirmDismiss;
           // final tiles = _saved.map(
-            final tiles =userFavorites.favorites.map(
-                (pair) {
+          final tiles = userFavorites.favorites.map(
+            (pair) {
               return Dismissible(
                 child: Padding(
                   padding: const EdgeInsets.all(10.0),
@@ -216,9 +281,7 @@ class _RandomWordsState extends State<RandomWords> {
                   ),
                 ),
                 background: Container(
-                  color: Theme
-                      .of(context)
-                      .primaryColor,
+                  color: Theme.of(context).primaryColor,
                   child: Row(children: const [
                     SizedBox(width: 10),
                     Icon(
@@ -243,30 +306,23 @@ class _RandomWordsState extends State<RandomWords> {
                         actions: <Widget>[
                           Consumer<AuthRepository>(
                               builder: (context, authRepository, child) {
-                                return FlatButton(
-                                    onPressed: () =>
-                                    {
+                            return FlatButton(
+                                onPressed: () => {
                                       Navigator.of(context).pop(true),
                                       // removeSuggestion(pair.toLowerCase().toString()),
                                       userFavorites.removeFromFavorites(
                                           pair, authRepository)
                                     },
-                                    child: const Text("Yes",
-                                        style: TextStyle(color: Colors.white)),
-                                    color: Theme
-                                        .of(context)
-                                        .primaryColor);
-                              }),
+                                child: const Text("Yes",
+                                    style: TextStyle(color: Colors.white)),
+                                color: Theme.of(context).primaryColor);
+                          }),
                           FlatButton(
                               onPressed: () => Navigator.of(context).pop(false),
                               child: const Text("No",
                                   style: TextStyle(color: Colors.white)),
-                              color: Theme
-                                  .of(context)
-                                  .primaryColor),
-
+                              color: Theme.of(context).primaryColor),
                         ],
-
                       );
                     },
                   );
@@ -279,9 +335,9 @@ class _RandomWordsState extends State<RandomWords> {
           );
           final divided = tiles.isNotEmpty
               ? ListTile.divideTiles(
-            context: context,
-            tiles: tiles,
-          ).toList()
+                  context: context,
+                  tiles: tiles,
+                ).toList()
               : <Widget>[];
 
           return Scaffold(
@@ -294,87 +350,6 @@ class _RandomWordsState extends State<RandomWords> {
       ),
     );
   }
-
-  // void _pushLogin() {
-  //   String? email;
-  //   String? password;
-  //   Navigator.of(context).push(MaterialPageRoute<void>(
-  //     builder: (context) {
-  //       return Scaffold(
-  //         appBar: AppBar(
-  //           title: const Text('Login'),
-  //         ),
-  //         body: Center(
-  //             child: Column(
-  //           children: [
-  //             const Padding(
-  //               padding: EdgeInsets.only(top: 20.0, right: 20.0, left: 20.0),
-  //               child: Text(
-  //                   'Welcome to Startup NamesGenerator, please log in below'),
-  //             ),
-  //             Padding(
-  //                 padding: const EdgeInsets.all(20.0),
-  //                 child: TextFormField(
-  //                   decoration: const InputDecoration(
-  //                     border: UnderlineInputBorder(),
-  //                     labelText: 'Email',
-  //                   ),
-  //                 )),
-  //             Padding(
-  //                 padding: const EdgeInsets.all(20.0),
-  //                 child: TextFormField(
-  //                   decoration: const InputDecoration(
-  //                     border: UnderlineInputBorder(),
-  //                     labelText: 'Password',
-  //                   ),
-  //                 )),
-  //             ElevatedButton(
-  //               onPressed: () {
-  //                 // final snackBar = SnackBar(
-  //                 //   content: const Text('Login is not implemented yet'),
-  //                 //   action: SnackBarAction(
-  //                 //     label: 'Undo',
-  //                 //     onPressed: () {
-  //                 //       // Some code to undo the change.
-  //                 //     },
-  //                 //   ),
-  //                 // );
-  //                 //
-  //                 // // Find the ScaffoldMessenger in the widget tree
-  //                 // // and use it to show a SnackBar.
-  //                 // ScaffoldMessenger.of(context).showSnackBar(snackBar);
-  //
-  //                 // AuthRepository.instance()
-  //                 //     .signIn(email: email, password: password)
-  //                 //     .then((result) {
-  //                 //   print('****** This is the result:  $result');
-  //                 //   if (result == null) {
-  //                 //     Navigator.pushReplacement(context,
-  //                 //         MaterialPageRoute(builder: (context) => MyApp()));
-  //                 //   } else {
-  //                 //     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-  //                 //       content: Text(
-  //                 //         // result,
-  //                 //         'here',
-  //                 //         style: TextStyle(fontSize: 16),
-  //                 //       ),
-  //                 //     ));
-  //                 //   }
-  //                 // });
-  //               },
-  //               child: const Text("Log in"),
-  //               style: ElevatedButton.styleFrom(
-  //                   fixedSize: const Size(320, 30),
-  //                   shape: RoundedRectangleBorder(
-  //                     borderRadius: BorderRadius.circular(40.0),
-  //                   )),
-  //             )
-  //           ],
-  //         )),
-  //       );
-  //     },
-  //   ));
-  // }
 
   Widget _buildSuggestions() {
     return ListView.builder(
@@ -414,89 +389,36 @@ class _RandomWordsState extends State<RandomWords> {
 
   Widget _buildRow(WordPair pair) {
     // final alreadySaved = _saved.contains(pair);
-    return Consumer<UserFavorites>(
-        builder: (context, userFavorites, child) {
-          // final alreadySaved = UserFavorites().favorites.contains(pair);
-          final alreadySaved = userFavorites.favorites.contains(pair);
-          var splitPair = pair.join(' ').split(' ');
-          return Consumer<AuthRepository>(
-              builder: (context, authRepository, child)
-          {
-            return ListTile(
-              title: Text(
-                pair.asPascalCase,
-                style: _biggerFont,
-              ),
-              trailing: Icon(
-                // NEW from here...
-                alreadySaved ? Icons.star : Icons.star_border,
-                color: alreadySaved ? Theme
-                    .of(context)
-                    .primaryColor : null,
-                semanticLabel: alreadySaved ? 'Remove from saved' : 'Save',
-              ),
-              onTap: () {
-                setState(() {
-                  if (alreadySaved) {
-                    userFavorites.removeFromFavorites(pair, authRepository);
-                    // _saved.remove(pair);
-                    // _isAuth ? userFavorites.removeFromFavorites(pair, authRepository) : null;
-                    // // UserFavorites().getData();
-                  } else {
-                    // _saved.add(pair);
-                    userFavorites.addToFavorites(pair, authRepository);
-                    // if (_isAuth) {
-                    //   userFavorites.addToFavorites(pair, authRepository);
-                    //   print('this is current favorites: ${userFavorites.favorites}');
-                    //   // UserFavorites().getData();
-                    //   // _saved = UserFavorites().favorites;
-                    //   // addSuggestion(splitPair);
-                    // }
-                  }
-
-                  // _saved = _isAuth? UserFavorites().favorites: _saved;
-                });
-              },
-            );
-          });
-        });
-
-    // final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-    // Widget _buildForm(BuildContext context) {
-    //   return Form(
-    //     key: _formKey,
-    //     child: Column(
-    //       crossAxisAlignment: CrossAxisAlignment.start,
-    //       children: <Widget>[
-    //         TextFormField(
-    //           decoration: const InputDecoration(
-    //             hintText: 'Enter your email',
-    //           ),
-    //           validator: (String? value) {
-    //             if (value == null || value.isEmpty) {
-    //               return 'Please enter some text';
-    //             }
-    //             return null;
-    //           },
-    //         ),
-    //         Padding(
-    //           padding: const EdgeInsets.symmetric(vertical: 16.0),
-    //           child: ElevatedButton(
-    //             onPressed: () {
-    //               // Validate will return true if the form is valid, or false if
-    //               // the form is invalid.
-    //               if (_formKey.currentState!.validate()) {
-    //                 // Process data.
-    //               }
-    //             },
-    //             child: const Text('Submit'),
-    //           ),
-    //         ),
-    //       ],
-    //     ),
-    //   );
-    // }
-
+    return Consumer<UserFavorites>(builder: (context, userFavorites, child) {
+      // final alreadySaved = UserFavorites().favorites.contains(pair);
+      final alreadySaved = userFavorites.favorites.contains(pair);
+      var splitPair = pair.join(' ').split(' ');
+      return Consumer<AuthRepository>(
+          builder: (context, authRepository, child) {
+        return ListTile(
+          title: Text(
+            pair.asPascalCase,
+            style: _biggerFont,
+          ),
+          trailing: Icon(
+            // NEW from here...
+            alreadySaved ? Icons.star : Icons.star_border,
+            color: alreadySaved ? Theme.of(context).primaryColor : null,
+            semanticLabel: alreadySaved ? 'Remove from saved' : 'Save',
+          ),
+          onTap: () {
+            setState(() {
+              if (alreadySaved) {
+                userFavorites.removeFromFavorites(pair, authRepository);
+                // _saved.remove(pair);
+              } else {
+                // _saved.add(pair);
+                userFavorites.addToFavorites(pair, authRepository);
+              }
+            });
+          },
+        );
+      });
+    });
   }
 }

@@ -35,7 +35,8 @@ class UserFavorites extends ChangeNotifier{
   }
 
   void resetFavorites(){
-    _favories = <WordPair>{};
+    _favories.clear();
+    print('favorites is now: $_favories');
     notifyListeners();
   }
 
@@ -114,16 +115,7 @@ class UserFavorites extends ChangeNotifier{
       // print(pair);
       _favories.add(pair);
     }
-    // print('total: $_favories');
     notifyListeners();
   }
-
-
-  // Future<void> syncFavorites (String email) async {
-  //   await FirebaseFirestore.instance
-  // }
-
-
-
 
 }

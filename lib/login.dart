@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-
-// import 'package:flutter_firebase_auth/authentication.dart';
-// import 'package:flutter_firebase_auth/MyApp.dart';
-// import 'package:flutter_firebase_auth/signup.dart';
 import 'package:hello_me2/authentication.dart';
 import 'package:hello_me2/MyApp.dart';
-import 'package:hello_me2/signUp.dart';
+import 'package:hello_me2/profilePicture.dart';
 import 'package:hello_me2/userFavorites.dart';
 import 'package:provider/provider.dart';
+import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 
 class Login extends StatelessWidget {
   const Login({Key? key}) : super(key: key);
@@ -20,31 +17,15 @@ class Login extends StatelessWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.all(8.0),
-        children: <Widget>[
-          const SizedBox(
+        children: const <Widget>[
+          SizedBox(
             height: 10,
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.all(16.0),
             child: LoginForm(),
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: <Widget>[
-              const SizedBox(width: 30),
-              const Text('New here ? ',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-              GestureDetector(
-                onTap: () {
-                  // Navigator.pushNamed(context, '/signup');
-                  Navigator.push(context,
-                      MaterialPageRoute(builder: (context) => Signup()));
-                },
-                child: const Text('Get Registered Now!!',
-                    style: TextStyle(fontSize: 20, color: Colors.blue)),
-              )
-            ],
-          ),
+          SizedBox(height: 20),
         ],
       ),
     );
@@ -63,147 +44,321 @@ class _LoginFormState extends State<LoginForm> {
 
   String? email;
   String? password;
-  // bool loading = AuthRepository.instance().isAuthenticating;
-
-  // bool _obscureText = true;
+  String? currPassword;
+  bool _obscureText = true;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthRepository>(builder: (context, authRepository, child) {
-      var isAuthenticating = authRepository.isAuthenticating;
-      print('###### status is: ${authRepository.status} ############');
-      return Form(
-        key: _formKey,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: <Widget>[
-            const Text(
-                'Welcome to Startup NamesGenerator, please log in below'),
-            const SizedBox(
-              height: 20,
-            ),
-            // email
-            TextFormField(
-              // initialValue: 'Input text',
-              decoration: const InputDecoration(
-                // prefixIcon: Icon(Icons.email_outlined),
-                labelText: 'Email',
-                // border: OutlineInputBorder(
-                // borderRadius: BorderRadius.all(
-                //   const Radius.circular(100.0),
-                // ),
-                // ),
-              ),
-              // validator: (value) {
-              //   if (value!.isEmpty) {
-              //     return 'Please enter some text';
-              //   }
-              //   return null;
-              // },
-              onSaved: (val) {
-                email = val;
-              },
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-
-            // password
-            TextFormField(
-              // initialValue: 'Input text',
-              decoration: const InputDecoration(
-                labelText: 'Password',
-                // prefixIcon: Icon(Icons.lock_outline),
-                // border: OutlineInputBorder(
-                //   borderRadius: BorderRadius.all(
-                //     const Radius.circular(100.0),
-                //   ),
-                // ),
-                // suffixIcon: GestureDetector(
-                //   onTap: () {
-                //     setState(() {
-                //       _obscureText = !_obscureText;
-                //     });
-                //   },
-                //   child: Icon(
-                //     _obscureText ? Icons.visibility_off : Icons.visibility,
-                //   ),
-                // ),
-              ),
-              // obscureText: _obscureText,
-              onSaved: (val) {
-                password = val;
-              },
-              // validator: (value) {
-              //   if (value!.isEmpty) {
-              //     return 'Please enter some text';
-              //   }
-              //   return null;
-              // },
-            ),
-
-            const SizedBox(height: 30),
-
-            SizedBox(
-              height: 30,
-              width: 320,
-              child:Consumer<UserFavorites>(
-    builder: (context, userFavorites, child) {
-      return ElevatedButton(
-        onPressed: authRepository.isAuthenticating? null : () {
-          // Respond to button press
-
-          if (_formKey.currentState!.validate()) {
-            _formKey.currentState!.save();
-
-            authRepository
-                .signIn(email: email!, password: password!)
-                .then((result) {
-              if (result) {
-                // userFavorites.setNewUser(authRepository);
-                userFavorites.updateToFavorites(authRepository);
-                Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const MyApp()));
-              } else {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(const SnackBar(
-                  content: Text(
-                    'There was an error logging into the app',
-                    style: TextStyle(fontSize: 16),
+      return Consumer<UserFavorites>(builder: (context, userFavorites, child) {
+        return Consumer<ProfilePicture>(
+            builder: (context, userProfilePic, child)
+        {
+          return Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: <Widget>[
+                const Text(
+                    'Welcome to Startup NamesGenerator, please log in below'),
+                const SizedBox(
+                  height: 20,
+                ),
+                // email
+                TextFormField(
+                  // initialValue: 'Input text',
+                  decoration: const InputDecoration(
+                    // prefixIcon: Icon(Icons.email_outlined),
+                    labelText: 'Email',
                   ),
-                ));
-              }
-            });
-          }
-        },
-        style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(40.0),
-          ),
-          primary:
-          // authRepository.status == Status.Authenticating
-          //     ? Colors.white54
-          //     :
-          Theme.of(context).primaryColor,
-        ),
-        child: authRepository.isAuthenticating
-            ? const CircularProgressIndicator(
-          value: 0.8,
-          color: Colors.white54,
-        )
-            : const Text(
-          'Log in',
-          // isAuthenticating.toString(),
-          style: TextStyle(fontSize: 16),
-        ),
-      );
-    }),
+                  onSaved: (val) {
+                    email = val;
+                  },
+                ),
+                const SizedBox(
+                  height: 20,
+                ),
+
+                // password
+                TextFormField(
+                  // initialValue: 'Input text',
+                  decoration: const InputDecoration(
+                    labelText: 'Password',
+                  ),
+                  obscureText: _obscureText,
+                  onSaved: (val) {
+                    password = val;
+                  },
+                ),
+
+                const SizedBox(height: 30),
+
+                SizedBox(
+                  height: 30,
+                  width: 320,
+                  child:
+                  ElevatedButton(
+                    onPressed: authRepository.isAuthenticating
+                        ? null
+                        : () {
+                      if (_formKey.currentState!.validate()) {
+                        _formKey.currentState!.save();
+
+                        authRepository
+                            .signIn(email: email!, password: password!)
+                            .then((result) {
+                          if (result) {
+                            // userFavorites.setNewUser(authRepository);
+                            userFavorites.updateToFavorites(authRepository);
+                            userProfilePic.getProfilePicture(authRepository);
+                            Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const MyApp()));
+                          } else {
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(const SnackBar(
+                              content: Text(
+                                'There was an error logging into the app',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ));
+                          }
+                        });
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(40.0),
+                      ),
+                      primary:
+                      Theme
+                          .of(context)
+                          .primaryColor,
+                    ),
+                    child: authRepository.isAuthenticating
+                        ? const CircularProgressIndicator(
+                      value: 0.8,
+                      color: Colors.white54,
+                    )
+                        : const Text(
+                      'Log in',
+                      // isAuthenticating.toString(),
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(
+                  height: 20,
+                ),
+                SizedBox(
+                  height: 30,
+                  width: 320,
+                  child: Consumer<AuthRepository>(
+                      builder: (context1, authRepository, child) {
+                        return Consumer<UserFavorites>(
+                            builder: (context2, userFavorites, child) {
+                              return Consumer<ProfilePicture>(
+                                  builder: (context, userProfilePic, child) {
+                                    return ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                                40.0),
+                                          ),
+                                          primary: Colors.blue,
+                                        ),
+                                        child: const Text(
+                                          'New User? Click to sign up',
+                                          // isAuthenticating.toString(),
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                        onPressed: () {
+                                          _formKey.currentState!.save();
+                                          showMaterialModalBottomSheet(
+                                              expand: false,
+                                              context: context,
+                                              // backgroundColor: Colors.transparent,
+                                              builder: (context) =>
+                                                  ShowModal(
+                                                      password: password,
+                                                      email: email));
+                                        }
+                                    );
+                                  });
+                            });
+                      }),
+                ),
+              ],
             ),
-          ],
-        ),
-      );
+          );
+        });
+      });
     });
+  }
+}
+
+
+class ShowModal extends StatefulWidget {
+  final password;
+  final email;
+
+  const ShowModal({Key? key, required this.password, required this.email})
+      : super(key: key);
+
+  @override
+  _ShowModalState createState() => _ShowModalState(password, email);
+}
+
+class _ShowModalState extends State<ShowModal> {
+  final confirmPassword = TextEditingController();
+  final password;
+  final email;
+
+  _ShowModalState(this.password, this.email);
+
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      child:
+          Consumer<AuthRepository>(builder: (context1, authRepository, child) {
+        return SafeArea(
+            top: false,
+            child:
+                Form(
+                    key: _formKey,
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Container(
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.all(20),
+                            // margin: const EdgeInsets.only(top: 20),
+                            child: const Text(
+                              'Please confirm your password below:',
+                              style: TextStyle(
+                                  // color: Colors.black,
+                                  // fontWeight: FontWeight.w500,
+                                  fontSize: 16),
+                            ),
+                          ),
+                          Container(
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.only(
+                                right: 20, left: 20, bottom: 20),
+                            child: Theme(
+                              data: Theme.of(context),
+                              child: Consumer<ConfirmPasswordBtn>(
+                                  builder: (context0, confirmButton, child) {
+                                return Consumer<UserFavorites>(
+                                    builder: (context2, userFavorites, child) {
+                                  return Consumer<ProfilePicture>(builder:
+                                      (context, userProfilePic, child) {
+                                    return TextFormField(
+                                      decoration: const InputDecoration(
+                                        // border: OutlineInputBorder(),
+                                        labelText: 'Password',
+                                      ),
+                                      obscureText: true,
+                                      controller: confirmPassword,
+                                      validator: (value) {
+                                        print("VALUE IS: $value");
+                                        print("PASSWORD IS: $password");
+                                        if (confirmButton.isConfirm &&
+                                            value == password) {
+                                          authRepository
+                                              .signUp(
+                                                  email: email,
+                                                  password: password)
+                                              .then((value) {
+                                            if (value == null) {
+                                             Navigator.pop(context);
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(const SnackBar(
+                                                content: Text(
+                                                  'Error occured, please try again',
+                                                  style:
+                                                      TextStyle(fontSize: 16),
+                                                ),
+                                              ));
+                                            } else {
+                                              Navigator.pop(context);
+                                              Navigator.pop(context);
+                                              userFavorites
+                                                  .getData(authRepository)
+                                                  .then((value) {
+                                                userFavorites.updateToFavorites(
+                                                    authRepository);
+                                              }).then((value) {
+                                                userProfilePic
+                                                    .updateAnonymousPicture();
+                                              });
+                                              confirmButton.updateConfirm();
+                                            }
+                                            return null;
+                                          });
+                                        } else {
+                                          setState(() {
+                                            confirmButton.updateConfirm();
+                                          });
+                                          return 'Passwords must match';
+                                        }
+                                      },
+                                    );
+                                  });
+                                });
+                                // });
+                              }),
+                            ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(
+                                right: 20, left: 20, bottom: 20),
+                            child: Consumer<ConfirmPasswordBtn>(
+                                builder: (context0, confirmButton, child) {
+                              return Consumer<AuthRepository>(
+                                  builder: (context1, authRepository, child) {
+                                return Consumer<UserFavorites>(
+                                    builder: (context2, userFavorites, child) {
+                                  return Consumer<ProfilePicture>(builder:
+                                      (context3, userProfilePic, child) {
+                                    return TextButton(
+                                        onPressed: () {
+                                          confirmButton.updateConfirm();
+                                          _formKey.currentState!.validate();
+                                        },
+                                        style: TextButton.styleFrom(
+                                            primary: Colors.white,
+                                            backgroundColor: Colors.blue,
+                                            fixedSize: const Size.fromWidth(80)),
+                                        child: const Text('Confirm'));
+                                  });
+                                });
+                              });
+                            }),
+                          )
+                        ],
+                      ),
+                    )));
+      }),
+    );
+  }
+}
+
+class ConfirmPasswordBtn extends ChangeNotifier {
+  bool _isConfirm;
+
+  ConfirmPasswordBtn() : _isConfirm = false;
+
+  bool get isConfirm => _isConfirm;
+
+  void updateConfirm() {
+    _isConfirm = !_isConfirm;
+    notifyListeners();
   }
 }
