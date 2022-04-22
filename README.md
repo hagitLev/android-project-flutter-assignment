@@ -1,4 +1,4 @@
-# Dry questions - HW3:
+# Dry Questions - HW3:
 
 
 *1.	What class is used to implement the controller pattern in this library? What features does it allow the developer to control?*
