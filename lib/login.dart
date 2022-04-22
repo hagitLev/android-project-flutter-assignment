@@ -298,13 +298,13 @@ class _ShowModalState extends State<ShowModal> {
                                                 userProfilePic
                                                     .updateAnonymousPicture();
                                               });
-                                              confirmButton.updateConfirm();
+                                              confirmButton.reset();
                                             }
                                             return null;
                                           });
                                         } else {
                                           setState(() {
-                                            confirmButton.updateConfirm();
+                                            confirmButton.reset();
                                           });
                                           return 'Passwords must match';
                                         }
@@ -329,7 +329,7 @@ class _ShowModalState extends State<ShowModal> {
                                       (context3, userProfilePic, child) {
                                     return TextButton(
                                         onPressed: () {
-                                          confirmButton.updateConfirm();
+                                          confirmButton.clickConfirm();
                                           _formKey.currentState!.validate();
                                         },
                                         style: TextButton.styleFrom(
@@ -357,8 +357,13 @@ class ConfirmPasswordBtn extends ChangeNotifier {
 
   bool get isConfirm => _isConfirm;
 
-  void updateConfirm() {
-    _isConfirm = !_isConfirm;
+  void clickConfirm() {
+    _isConfirm = true;
+    notifyListeners();
+  }
+
+  void reset() {
+    _isConfirm = false;
     notifyListeners();
   }
 }
